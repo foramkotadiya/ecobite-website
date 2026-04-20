@@ -398,3 +398,37 @@ h6 {
 .mr-4 {
   margin-right: 16px;
 }
+
+/* ---------- RESPONSIVE DESIGN (MOBILE) ---------- */
+.login-grid {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+@media (max-width: 900px) {
+  .login-grid {
+    grid-template-columns: 1fr;
+  }
+  .grid-cols-2, .grid-cols-3, .grid-cols-4 {
+    grid-template-columns: 1fr !important;
+  }
+  .card[style*="column"], .card[style*="span"] {
+    grid-column: span 1 !important;
+  }
+  .nav-links {
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 16px;
+  }
+  .brand-logo {
+    justify-content: center;
+    width: 100%;
+  }
+  .top-nav .layout-container {
+    flex-direction: column;
+  }
+  .tracking-map-card {
+    height: 300px !important;
+  }
+}
