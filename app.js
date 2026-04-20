@@ -81,9 +81,10 @@ function renderLogin() {
                 <h1 style="font-size: 2.5rem; color: var(--primary-hover); margin-bottom: 16px; max-width: 80%;">Connecting Food Donors, NGOs and Volunteers</h1>
                 <p class="text-muted text-lg" style="max-width: 70%;">A seamless ecosystem to reduce food waste and feed communities in need effectively.</p>
                 
-                <div style="margin-top: 48px; width: 300px; height: 300px; background: white; border-radius: var(--radius-xl); box-shadow: var(--shadow-lg); display: flex; align-items: center; justify-content: center;">
-                    <i data-lucide="package-open" style="width: 100px; height: 100px; color: var(--primary);"></i>
-                </div>
+               <div style="margin-top: 48px; width: 340px; height: 340px; border-radius: var(--radius-xl); box-shadow: var(--shadow-lg); overflow: hidden; position: relative; animation: fadeIn 0.8s ease-out;">
+    <img src="hero.png" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" alt="A beautiful glowing box of fresh food">
+</div>
+
             </div>
             
             <!-- Right Login Side -->
