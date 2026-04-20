@@ -72,7 +72,7 @@ function renderTopNav() {
 // 1. Login Screen
 function renderLogin() {
     return `
-        <div style="min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr;">
+        <div class="login-grid">
             <!-- Left Branding Side -->
             <div style="background-color: var(--primary-light); padding: 48px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
                 <div class="brand-logo" style="font-size: 3rem; margin-bottom: 24px;">
