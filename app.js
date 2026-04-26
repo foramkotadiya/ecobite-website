@@ -1,18 +1,105 @@
-// State to track current route
+// ---------------- GLOBAL STATE ---------------- //
 let currentRoute = 'login'; 
-let userRole = 'donor'; // 'donor', 'ngo', or 'volunteer'
+let userRole = null; // 'donor', 'ngo', or 'volunteer'
 
-// Main Render Function
-function navigate(route) {
+let appState = {
+    donations: [
+        // Seeded realistic initial data
+        { id: 'DON-1', food: '50x Cooked Meals (Pasta)', desc: 'Prepared 30 mins ago. Needs enclosed delivery.', address: 'Grand Hotel Banquet, 12th St', destination: 'City Hope Center', status: 'ready_for_pickup', time: '2:00 PM', urgency: 'High Priority', type: 'Cooked Meals' },
+        { id: 'DON-2', food: 'Bakery Surplus (Breads)', desc: 'Shelf-stable for 2 days. 2 large boxes.', address: 'Sunrise Bakery, West Ave', destination: 'Community Food Bank', status: 'ready_for_pickup', time: '4:30 PM', urgency: 'Standard', type: 'Bakery' },
+        { id: 'DON-4', food: '20x Fresh Produce Boxes', desc: 'Fresh vegetables and fruits from local farm.', address: 'Green Valley Farms, North Rd', destination: 'Pending NGO Assignment', status: 'pending_ngo', time: 'ASAP', urgency: 'Standard', type: 'Fresh Produce' },
+        { id: 'DON-3', food: '15 Pasta Trays', desc: '', address: 'Downtown Cafe', destination: 'Local Shelter', status: 'completed', time: 'Yesterday', urgency: 'Standard', type: 'Cooked Meals' }
+    ]
+};
+
+// ---------------- ACTIONS ---------------- //
+
+window.handleLogin = function() {
+    const email = document.getElementById('login-email').value.toLowerCase();
+    
+    if (email.includes('donor')) {
+        userRole = 'donor';
+        navigate('dashboard');
+    } else if (email.includes('ngo')) {
+        userRole = 'ngo';
+        navigate('ngo'); // Default view for NGO
+    } else if (email.includes('volunteer')) {
+        userRole = 'volunteer';
+        navigate('volunteer'); // Default view for Volunteer
+    } else {
+        alert("Please use an email containing 'donor', 'ngo', or 'volunteer'.\\nExample: abcvolunteer@ecobite.com");
+    }
+}
+
+window.handleLogout = function() {
+    userRole = null;
+    navigate('login');
+}
+
+window.submitDonation = function() {
+    const foodType = document.getElementById('donate-type').value;
+    const quantity = document.getElementById('donate-quantity').value;
+    const desc = document.getElementById('donate-desc').value;
+    const address = document.getElementById('donate-address').value;
+    const time = document.getElementById('donate-time').value;
+    
+    if (!quantity || !address) {
+        return alert("Please fill in quantity and an address.");
+    }
+
+    const newDonation = {
+        id: 'DON-' + Math.floor(Math.random() * 10000),
+        food: quantity + 'x ' + foodType,
+        desc: desc || "Standard food drop-off.",
+        address: address,
+        destination: 'Pending NGO Assignment',
+        status: 'pending_ngo', // Send straight to NGO dashboard!
+        time: time || 'ASAP',
+        urgency: 'High Priority', 
+        type: foodType
+    };
+    
+    appState.donations.push(newDonation);
+    alert('Donation Successfully Added! It is now waiting for an NGO to accept on their dashboard.');
+    navigate('dashboard');
+}
+
+window.approveDonationByNGO = function(id) {
+    const donation = appState.donations.find(d => d.id === id);
+    if (donation) {
+        donation.status = 'ready_for_pickup'; // Now volunteers can see it!
+        donation.destination = 'NGO Headquarters'; // Claimed by the NGO
+        navigate('ngo'); // Re-render
+    }
+}
+
+window.acceptTaskByVolunteer = function(id) {
+    const donation = appState.donations.find(d => d.id === id);
+    if (donation) {
+        donation.status = 'in_transit'; 
+        navigate('tracking'); 
+    }
+}
+
+window.completeDelivery = function() {
+    // Arbitrarily complete all transit
+    appState.donations.forEach(d => {
+        if(d.status === 'in_transit') d.status = 'completed';
+    });
+    alert("Delivery completed! Impact metrics updated.");
+    navigate('volunteer');
+}
+
+
+// ---------------- ROUTING & RENDERING ---------------- //
+
+window.navigate = function(route) {
     currentRoute = route;
     const appEl = document.getElementById('app');
     
-    // Smooth transition out (optional step)
     appEl.innerHTML = ''; 
-    
     let content = '';
     
-    // Wrap non-login pages with Top Nav
     if (route !== 'login') {
         content += renderTopNav();
     }
@@ -37,32 +124,41 @@ function navigate(route) {
     
     appEl.innerHTML = content;
     
-    // Initialize icons after rendering
     if (window.lucide) {
         lucide.createIcons();
     }
-    
     window.scrollTo(0, 0);
 }
 
 // ---------------- SCREENS ---------------- //
 
 function renderTopNav() {
+    let linksHtml = '';
+    
+    if (userRole === 'donor') {
+        linksHtml += `<button class="nav-link ${currentRoute === 'dashboard' ? 'active' : ''}" onclick="navigate('dashboard')">Donor Dashboard</button>`;
+        linksHtml += `<button class="nav-link ${currentRoute === 'donate' ? 'active' : ''}" onclick="navigate('donate')">Donate Food</button>`;
+    } else if (userRole === 'ngo') {
+        linksHtml += `<button class="nav-link ${currentRoute === 'ngo' ? 'active' : ''}" onclick="navigate('ngo')">NGO Command Center</button>`;
+    } else if (userRole === 'volunteer') {
+        linksHtml += `<button class="nav-link ${currentRoute === 'volunteer' ? 'active' : ''}" onclick="navigate('volunteer')">Task Hub</button>`;
+        linksHtml += `<button class="nav-link ${currentRoute === 'tracking' ? 'active' : ''}" onclick="navigate('tracking')">Live Tracking</button>`;
+    }
+    
+    // Everyone sees Analytics
+    linksHtml += `<button class="nav-link ${currentRoute === 'analytics' ? 'active' : ''}" onclick="navigate('analytics')">Global Impact</button>`;
+
     return `
         <nav class="top-nav">
             <div class="layout-container flex items-center justify-between">
-                <div class="brand-logo" style="cursor:pointer;" onclick="navigate('dashboard')">
-                    <i data-lucide="leaf"></i> EcoBite
+                <div class="brand-logo" style="cursor:pointer;" onclick="navigate('${userRole === 'ngo' ? 'ngo' : userRole === 'volunteer' ? 'volunteer' : 'dashboard'}')">
+                    <i data-lucide="leaf"></i> EcoBite <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: normal; margin-left: 8px; border: 1px solid var(--border); padding: 2px 6px; border-radius: 10px;">${userRole ? userRole.toUpperCase() : ''} VIEW</span>
                 </div>
                 <div class="nav-links">
-                    <button class="nav-link ${currentRoute === 'dashboard' ? 'active' : ''}" onclick="navigate('dashboard')">Home</button>
-                    <button class="nav-link ${currentRoute === 'donate' ? 'active' : ''}" onclick="navigate('donate')">Donate</button>
-                    <button class="nav-link ${currentRoute === 'volunteer' ? 'active' : ''}" onclick="navigate('volunteer')">Task Hub</button>
-                    <button class="nav-link ${currentRoute === 'ngo' ? 'active' : ''}" onclick="navigate('ngo')">NGO View</button>
-                    <button class="nav-link ${currentRoute === 'analytics' ? 'active' : ''}" onclick="navigate('analytics')">Impact</button>
+                    ${linksHtml}
                     <div style="width: 1px; height: 24px; background: var(--border); margin: 0 8px;"></div>
                     <button class="btn btn-outline" style="padding: 8px; border-radius: 50%;"><i data-lucide="bell" style="width: 18px; height: 18px;"></i></button>
-                    <button class="btn btn-outline" style="padding: 8px; border-radius: 50%;" onclick="navigate('login')"><i data-lucide="user" style="width: 18px; height: 18px;"></i></button>
+                    <button class="btn btn-outline" style="padding: 8px; border-radius: 50%; color: var(--danger); border-color: var(--danger);" onclick="handleLogout()" title="Log out"><i data-lucide="log-out" style="width: 18px; height: 18px;"></i></button>
                 </div>
             </div>
         </nav>
@@ -81,65 +177,68 @@ function renderLogin() {
                 <h1 style="font-size: 2.5rem; color: var(--primary-hover); margin-bottom: 16px; max-width: 80%;">Connecting Food Donors, NGOs and Volunteers</h1>
                 <p class="text-muted text-lg" style="max-width: 70%;">A seamless ecosystem to reduce food waste and feed communities in need effectively.</p>
                 
-               <div style="margin-top: 48px; width: 340px; height: 340px; border-radius: var(--radius-xl); box-shadow: var(--shadow-lg); overflow: hidden; position: relative; animation: fadeIn 0.8s ease-out;">
-    <img src="hero.png" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" alt="A beautiful glowing box of fresh food">
-</div>
-
+                <div style="margin-top: 48px; width: 100%; max-width: 340px; aspect-ratio: 1/1; flex-shrink: 0; border-radius: var(--radius-xl); box-shadow: var(--shadow-lg); overflow: hidden; position: relative; animation: fadeIn 0.8s ease-out;">
+                    <img src="hero.png" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" alt="A beautiful glowing box of fresh food">
+                </div>
             </div>
             
             <!-- Right Login Side -->
             <div style="padding: 48px; display: flex; flex-direction: column; justify-content: center; max-width: 500px; margin: 0 auto; width: 100%;">
                 <h2 style="font-size: 2rem; margin-bottom: 8px;">Welcome Back</h2>
-                <p class="text-muted mb-8 text-lg">Sign in to continue your impact.</p>
+                <p class="text-muted mb-8 text-lg">Sign in to automatically route to your dashboard.</p>
                 
-                <div class="flex gap-2 mb-8" style="background: var(--surface-hover); padding: 4px; border-radius: var(--radius-sm);">
-                    <button class="btn flex-1" style="background: white; box-shadow: var(--shadow-sm);">Donor</button>
-                    <button class="btn flex-1 text-muted">NGO</button>
-                    <button class="btn flex-1 text-muted">Volunteer</button>
+                <div class="card bg-primary-light" style="background: var(--surface-hover); border: none; margin-bottom: 24px;">
+                    <p class="text-sm font-semibold mb-2">Try entering an email containing:</p>
+                    <ul class="text-sm text-muted" style="list-style-type: disc; padding-left: 16px;">
+                        <li><strong>donor</strong> (e.g., abcdonor@ecobite.com)</li>
+                        <li><strong>ngo</strong> (e.g., testngo@ecobite.com)</li>
+                        <li><strong>volunteer</strong> (e.g., myvolunteer@ecobite.com)</li>
+                    </ul>
                 </div>
                 
                 <div class="flex flex-col gap-4 mb-6">
                     <div>
                         <label class="text-sm font-semibold mb-2" style="display: block;">Email Address</label>
-                        <input type="email" class="input-field" placeholder="hello@example.com">
+                        <input type="email" id="login-email" class="input-field" placeholder="abcdonor@ecobite.com" value="abcdonor@ecobite.com">
                     </div>
                     <div>
                         <label class="text-sm font-semibold mb-2" style="display: block;">Password</label>
-                        <input type="password" class="input-field" placeholder="••••••••">
+                        <input type="password" class="input-field" placeholder="••••••••" value="password123">
                     </div>
                 </div>
                 
-                <button class="btn btn-primary" style="width: 100%; justify-content: center; font-size: 1rem; padding: 14px;" onclick="navigate('dashboard')">Sign In to Dashboard</button>
-                
-                <p class="text-center text-sm text-muted mt-8">Don't have an account? <span class="text-primary font-semibold" style="cursor:pointer;">Sign up here</span></p>
+                <button class="btn btn-primary" style="width: 100%; justify-content: center; font-size: 1rem; padding: 14px;" onclick="handleLogin()">Sign In <i data-lucide="arrow-right"></i></button>
             </div>
         </div>
     `;
 }
 
-// 2. Home Dashboard
+// 2. Home Dashboard (Donor)
 function renderDashboard() {
+    let completedDonations = appState.donations.filter(d => d.status === 'completed' || d.status === 'ready_for_pickup' || d.status === 'in_transit');
+    let completedHtml = completedDonations.map(d => `
+        <div class="card flex items-center justify-between" style="padding: 16px;">
+            <div class="flex items-center gap-4">
+                <div style="background: var(--surface-hover); padding: 12px; border-radius: var(--radius-sm);">
+                    <i data-lucide="${d.type.includes('Produce') ? 'apple' : 'pizza'}" class="text-muted"></i>
+                </div>
+                <div>
+                    <h4 style="font-size: 1rem;">${d.food}</h4>
+                    <p class="text-sm text-muted">Donated • Status: <span style="text-transform: capitalize;">${d.status.replace(/_/g, ' ')}</span></p>
+                </div>
+            </div>
+            <span class="badge badge-success"><i data-lucide="check" style="width:12px;"></i> Active</span>
+        </div>
+    `).join('');
+
+    if(!completedHtml) completedHtml = '<p class="text-muted">No donations yet.</p>';
+
     return `
         <h1 class="mb-2">Donor Dashboard</h1>
         <p class="text-muted mb-8">Welcome back! Check your impact and nearby needs.</p>
-        
-        <!-- Emergency Banner -->
-        <div class="card mb-8 flex items-center justify-between" style="border-left: 4px solid var(--danger); background: #FEF2F2;">
-            <div class="flex items-center gap-4">
-                <div style="background: #FEE2E2; padding: 12px; border-radius: 50%; color: var(--danger);">
-                    <i data-lucide="alert-triangle"></i>
-                </div>
-                <div>
-                    <h3 style="color: var(--danger);">Emergency Food Request</h3>
-                    <p style="color: #991B1B; font-size: 0.875rem;">Local shelter in downtown needs hot meals for 50 people urgently.</p>
-                </div>
-            </div>
-            <button class="btn" style="background: var(--danger); color: white;">Respond Now</button>
-        </div>
 
         <div class="grid grid-cols-3 gap-6 mb-8">
-            <!-- Hero Action Cards -->
-            <div class="card flex flex-col items-center justify-center text-center" style="grid-column: span 1; background: var(--primary); color: white; cursor: pointer;" onclick="navigate('donate')">
+            <div class="card flex flex-col items-center justify-center text-center" style="grid-column: span 1; background: var(--primary); color: white; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'" onclick="navigate('donate')">
                 <i data-lucide="package-plus" style="width: 48px; height: 48px; margin-bottom: 16px;"></i>
                 <h2>Donate Food</h2>
                 <p style="opacity: 0.9; margin-top: 8px;">Schedule a pickup for excess food</p>
@@ -147,75 +246,33 @@ function renderDashboard() {
             
             <div class="card" style="grid-column: span 2; display: flex; gap: 24px;">
                 <div class="flex-1">
-                    <h3 class="mb-4">Live Tracking Map Preview</h3>
-                    <div style="width: 100%; height: 160px; background: #E2E8F0; border-radius: var(--radius-sm); border: 2px dashed #CBD5E1; display:flex; align-items:center; justify-content:center; color: #64748B;">
-                        [ Map Interactive View ]<br>Active Pickups: 2
+                    <h3 class="mb-4">Local Impact Statistics</h3>
+                    <p class="text-muted mb-2">Because of your donations, <strong>City Hope Center</strong> has fed 150 people!</p>
+                    <div style="width: 100%; height: 12px; background: var(--surface-hover); border-radius: 6px; overflow: hidden; margin-bottom: 8px;">
+                        <div style="width: 75%; height: 100%; background: var(--primary);"></div>
                     </div>
+                    <p class="text-sm text-muted text-right">Goal: 200 Meals</p>
                 </div>
-            </div>
-        </div>
-
-        <h3 class="mb-4">Platform Impact Highlights</h3>
-        <div class="grid grid-cols-4 gap-6 mb-8">
-            <div class="card">
-                <p class="text-muted text-sm font-semibold mb-1">Meals Saved</p>
-                <h2 style="font-size: 2rem;">24,500</h2>
-                <p class="text-sm text-primary flex items-center mt-2"><i data-lucide="trending-up" style="width:14px; margin-right:4px;"></i> +12% this week</p>
-            </div>
-            <div class="card">
-                <p class="text-muted text-sm font-semibold mb-1">NGOs Connected</p>
-                <h2 style="font-size: 2rem;">128</h2>
-            </div>
-            <div class="card">
-                <p class="text-muted text-sm font-semibold mb-1">Active Volunteers</p>
-                <h2 style="font-size: 2rem;">845</h2>
-            </div>
-            <div class="card">
-                <p class="text-muted text-sm font-semibold mb-1">Carbon Offset (kg)</p>
-                <h2 style="font-size: 2rem;">12.4k</h2>
             </div>
         </div>
         
         <div class="grid grid-cols-2 gap-6">
             <div>
-                <h3 class="mb-4">Recent Donation History</h3>
+                <h3 class="mb-4">Your Recent Activity</h3>
                 <div class="flex flex-col gap-4">
-                    <div class="card flex items-center justify-between" style="padding: 16px;">
-                        <div class="flex items-center gap-4">
-                            <div style="background: var(--surface-hover); padding: 12px; border-radius: var(--radius-sm);">
-                                <i data-lucide="pizza" class="text-muted"></i>
-                            </div>
-                            <div>
-                                <h4 style="font-size: 1rem;">15 Pasta Trays</h4>
-                                <p class="text-sm text-muted">Donated 2 hrs ago • Delivered by John D.</p>
-                            </div>
-                        </div>
-                        <span class="badge badge-success">Completed</span>
-                    </div>
-                    <div class="card flex items-center justify-between" style="padding: 16px;">
-                        <div class="flex items-center gap-4">
-                            <div style="background: var(--surface-hover); padding: 12px; border-radius: var(--radius-sm);">
-                                <i data-lucide="apple" class="text-muted"></i>
-                            </div>
-                            <div>
-                                <h4 style="font-size: 1rem;">Fresh Produce Box</h4>
-                                <p class="text-sm text-muted">Donated yesterday • Delivered</p>
-                            </div>
-                        </div>
-                        <span class="badge badge-success">Completed</span>
-                    </div>
+                    ${completedHtml}
                 </div>
             </div>
             
             <div>
-                <h3 class="mb-4">Nearby NGOs</h3>
+                <h3 class="mb-4">Nearby NGOs Requesting Aid</h3>
                 <div class="flex flex-col gap-4">
-                    <div class="card flex justify-between items-center" style="padding: 16px;">
+                    <div class="card flex justify-between items-center" style="padding: 16px; border-left: 4px solid var(--danger);">
                         <div>
                             <h4>City Hope Shelter</h4>
-                            <p class="text-sm text-muted">Requires: Hot meals, Breads • 1.2 miles away</p>
+                            <p class="text-sm text-danger font-semibold">URGENT: Requires Hot meals • 1.2 miles away</p>
                         </div>
-                        <button class="btn btn-outline" style="padding: 6px 12px; font-size: 0.75rem;">View Needs</button>
+                        <button class="btn btn-outline" style="padding: 6px 12px; font-size: 0.75rem;" onclick="navigate('donate')">Respond</button>
                     </div>
                 </div>
             </div>
@@ -238,30 +295,22 @@ function renderDonate() {
                 <div class="grid grid-cols-2 gap-6 mb-6">
                     <div>
                         <label class="text-sm font-semibold mb-2" style="display: block;">Food Category</label>
-                        <select class="input-field">
-                            <option>Cooked Meals</option>
-                            <option>Fresh Produce</option>
-                            <option>Packaged/Canned</option>
-                            <option>Bakery</option>
+                        <select id="donate-type" class="input-field">
+                            <option value="Cooked Meals">Cooked Meals</option>
+                            <option value="Fresh Produce">Fresh Produce</option>
+                            <option value="Packaged/Canned">Packaged/Canned</option>
+                            <option value="Bakery">Bakery</option>
                         </select>
                     </div>
                     <div>
-                        <label class="text-sm font-semibold mb-2" style="display: block;">Quantity / Servings</label>
-                        <input type="number" class="input-field" placeholder="e.g. 50 servings">
+                        <label class="text-sm font-semibold mb-2" style="display: block;">Quantity / Amount</label>
+                        <input id="donate-quantity" type="text" class="input-field" placeholder="e.g. 50 servings">
                     </div>
                 </div>
                 
                 <div class="mb-6">
                     <label class="text-sm font-semibold mb-2" style="display: block;">Food Freshness Status / Description</label>
-                    <textarea class="input-field" rows="3" placeholder="Prepared 2 hours ago. Needs to be consumed within 12 hours."></textarea>
-                </div>
-                
-                <div class="mb-6">
-                    <label class="text-sm font-semibold mb-2" style="display: block;">Upload Food Image (Optional)</label>
-                    <div style="border: 2px dashed var(--border); border-radius: var(--radius-sm); padding: 32px; text-align: center; color: var(--text-muted); background: var(--surface-hover);">
-                        <i data-lucide="image" style="width: 32px; height: 32px; margin-bottom: 8px;"></i>
-                        <p>Click to upload or drag & drop</p>
-                    </div>
+                    <textarea id="donate-desc" class="input-field" rows="3" placeholder="Prepared 2 hours ago. Needs to be consumed within 12 hours."></textarea>
                 </div>
                 
                 <hr style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;">
@@ -270,157 +319,201 @@ function renderDonate() {
                 <div class="grid grid-cols-2 gap-6 mb-6">
                     <div style="grid-column: span 2;">
                         <label class="text-sm font-semibold mb-2" style="display: block;">Pickup Address</label>
-                        <input type="text" class="input-field" value="123 Corporate Blvd, 4th Floor">
+                        <input id="donate-address" type="text" class="input-field" value="123 Corporate Blvd, 4th Floor">
                     </div>
                     <div>
                         <label class="text-sm font-semibold mb-2" style="display: block;">Requested Pickup Time</label>
-                        <input type="time" class="input-field" value="14:30">
+                        <input id="donate-time" type="time" class="input-field" value="14:30">
                     </div>
                 </div>
                 
                 <div class="flex justify-end gap-4 mt-8">
-                    <button class="btn btn-outline">Cancel</button>
-                    <button class="btn btn-primary" onclick="navigate('tracking')">Submit Donation <i data-lucide="check" style="width:16px;"></i></button>
+                    <button class="btn btn-outline" onclick="navigate('dashboard')">Cancel</button>
+                    <button class="btn btn-primary" onclick="submitDonation()">Submit Listing to NGOs <i data-lucide="send" style="width:16px;"></i></button>
                 </div>
             </div>
             
             <div>
                 <div class="card mb-6">
-                    <h3 class="mb-4">Progress Tracker</h3>
+                    <h3 class="mb-4">How it works</h3>
                     <div class="flex flex-col gap-4">
                         <div class="flex items-center gap-3">
                             <div style="width: 24px; height: 24px; border-radius: 50%; background: var(--primary); color: white; display:flex; align-items:center; justify-content:center; font-size: 12px;"><i data-lucide="check" style="width:12px;"></i></div>
-                            <span class="font-semibold text-sm">Enter Details</span>
+                            <span class="font-semibold text-sm">Submit Details</span>
                         </div>
                         <div style="width: 2px; height: 16px; background: var(--border); margin-left: 11px;"></div>
-                        <div class="flex items-center gap-3">
-                            <div style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--primary); display:flex; align-items:center; justify-content:center; font-size: 12px;">2</div>
-                            <span class="text-muted text-sm">Review Logistics</span>
+                        <div class="flex items-center gap-3 opacity-50">
+                            <div style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--text-muted); display:flex; align-items:center; justify-content:center; font-size: 12px;">2</div>
+                            <span class="text-muted text-sm">NGO Claims Listing</span>
                         </div>
                         <div style="width: 2px; height: 16px; background: var(--border); margin-left: 11px;"></div>
-                        <div class="flex items-center gap-3">
+                        <div class="flex items-center gap-3 opacity-50">
                             <div style="width: 24px; height: 24px; border-radius: 50%; background: var(--surface-hover); color: var(--text-muted); display:flex; align-items:center; justify-content:center; font-size: 12px;">3</div>
-                            <span class="text-muted text-sm">Confirm & Track</span>
+                            <span class="text-muted text-sm">Volunteer Pickup</span>
                         </div>
                     </div>
-                </div>
-                
-                <div class="card bg-primary-light" style="background: var(--primary-light); border: none;">
-                    <h4 class="mb-2 text-primary font-semibold flex items-center gap-2"><i data-lucide="info" style="width:16px;"></i> Safety Guidelines</h4>
-                    <p class="text-sm" style="color: var(--primary-hover);">Ensure all prepared food is kept at appropriate temperatures before pickup. Our volunteers carry insulated bags.</p>
                 </div>
             </div>
         </div>
     `;
 }
 
-// 4. Volunteer Assignment Screen
+// 4. NGO Dashboard
+function renderNGO() {
+    let pendingDonations = appState.donations.filter(d => d.status === 'pending_ngo');
+    let incomingDeliveries = appState.donations.filter(d => d.status === 'ready_for_pickup' || d.status === 'in_transit');
+    
+    let pendingTableRows = pendingDonations.map(d => `
+        <tr style="border-bottom: 1px solid var(--border);">
+            <td style="padding: 16px 8px; font-weight: 500;">${d.food}</td>
+            <td style="padding: 16px 8px; color: var(--text-muted); font-size: 0.8rem;">${d.address}</td>
+            <td style="padding: 16px 8px;">
+                <button class="btn btn-primary" style="padding: 6px 12px; font-size: 0.75rem;" onclick="approveDonationByNGO('${d.id}')">Claim & Assign Volunteer</button>
+            </td>
+        </tr>
+    `).join('');
+    
+    if(!pendingTableRows) pendingTableRows = '<tr><td colspan="3" style="padding: 16px; color: var(--text-muted); text-align: center;">No new pending donations in your area.</td></tr>';
+
+    let incomingRows = incomingDeliveries.map(d => `
+        <tr style="border-bottom: 1px solid var(--border);">
+            <td style="padding: 12px 8px; font-weight: 500;">${d.food}</td>
+            <td style="padding: 12px 8px;"><span class="badge ${d.status === 'in_transit' ? 'badge-warning' : ''}">${d.status === 'in_transit' ? 'On Route' : 'Waiting for Volunteer'}</span></td>
+        </tr>
+    `).join('');
+    if(!incomingRows) incomingRows = '<tr><td colspan="2" style="padding: 16px; color: var(--text-muted);">No incoming deliveries.</td></tr>';
+
+    return `
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h1 class="mb-2">NGO Command Center</h1>
+                <p class="text-muted">Manage incoming food requests and track assigned deliveries.</p>
+            </div>
+            <span class="badge badge-success" style="font-size: 1rem; padding: 8px 16px;">Live Data Active</span>
+        </div>
+        
+        <div class="grid grid-cols-3 gap-6 mb-8">
+            <div class="card" style="grid-column: span 2;">
+                <h3 class="mb-4 text-warning flex items-center gap-2"><i data-lucide="bell"></i> Pending Donor Listings (Review & Claim)</h3>
+                <p class="text-sm text-muted mb-4">Click "Claim" to instruct the system to recruit a volunteer for delivery to your NGO.</p>
+                
+                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.875rem;">
+                    <thead>
+                        <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
+                            <th style="padding: 12px 8px;">Food Offer</th>
+                            <th style="padding: 12px 8px;">Pickup Location</th>
+                            <th style="padding: 12px 8px;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${pendingTableRows}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="card">
+                <h3 class="mb-4 text-primary">Expected Arrivals</h3>
+                 <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.875rem;">
+                    <tbody>
+                        ${incomingRows}
+                    </tbody>
+                 </table>
+                 <hr style="margin: 16px 0; border: 0; border-top: 1px solid var(--border);">
+                 <p class="text-sm flex justify-between">Total Received This Week: <strong>450 lbs</strong></p>
+                 <p class="text-sm flex justify-between">Meals Distributed: <strong>1,200</strong></p>
+            </div>
+        </div>
+    `;
+}
+
+// 5. Volunteer Assignment Screen
 function renderVolunteer() {
+    let availableTasks = appState.donations.filter(d => d.status === 'ready_for_pickup');
+    
+    let tasksHtml = availableTasks.map(d => `
+        <div class="card">
+            <div class="flex justify-between items-start mb-4">
+                <span class="badge ${d.urgency === 'High Priority' ? 'badge-danger' : 'badge-success'} flex items-center gap-1"><i data-lucide="clock" style="width:12px;"></i> ${d.urgency}</span>
+            </div>
+            <h3 class="mb-2 text-xl">${d.food}</h3>
+            <p class="text-muted text-sm mb-6" style="line-height: 1.6;">${d.desc}</p>
+            
+            <div class="flex flex-col gap-4 mb-8 relative">
+                <div style="position: absolute; left: 15px; top: 20px; bottom: 20px; width: 2px; border-left: 2px dashed var(--border);"></div>
+                <div class="flex gap-4 items-center z-10" style="background: var(--surface);">
+                    <div style="background: var(--surface-hover); border-radius: 50%; padding: 8px;"><i data-lucide="map-pin" class="text-muted" style="width:16px;"></i></div>
+                    <div>
+                        <p class="text-xs text-muted mb-1">PICKUP at ${d.time}</p>
+                        <p class="text-sm font-semibold">${d.address}</p>
+                    </div>
+                </div>
+                <div class="flex gap-4 items-center z-10" style="background: var(--surface);">
+                    <div style="background: var(--primary-light); border-radius: 50%; padding: 8px; color: var(--primary);"><i data-lucide="flag" style="width:16px;"></i></div>
+                    <div>
+                        <p class="text-xs text-muted mb-1">DROPOFF (NGO)</p>
+                        <p class="text-sm font-semibold">${d.destination}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex gap-4">
+                <button class="btn btn-primary flex-1" onclick="acceptTaskByVolunteer('${d.id}')">Accept Task & Start Nav</button>
+            </div>
+        </div>
+    `).join('');
+    
+    if(!tasksHtml) tasksHtml = '<div class="card" style="grid-column: span 2; text-align: center; padding: 48px; color: var(--text-muted);"><i data-lucide="check-circle" style="width: 48px; height: 48px; margin-bottom: 16px;"></i><h3>No pickup tasks currently available.</h3><p>NGOs will assign tasks here automatically.</p></div>';
+
     return `
         <div class="flex justify-between items-center mb-6">
             <div>
                 <h1 class="mb-2">Available Tasks</h1>
-                <p class="text-muted">Pick up donations and deliver to NGOs in your vicinity.</p>
-            </div>
-            <div class="flex gap-2">
-                <button class="btn btn-outline"><i data-lucide="filter" style="width:16px;"></i> Filter</button>
-                <button class="btn btn-outline"><i data-lucide="map" style="width:16px;"></i> Map View</button>
+                <p class="text-muted">Pick up donations approved by NGOs and deliver them safely.</p>
             </div>
         </div>
         
         <div class="grid grid-cols-2 gap-6">
-            <!-- Task Card 1 -->
-            <div class="card">
-                <div class="flex justify-between items-start mb-4">
-                    <span class="badge badge-danger flex items-center gap-1"><i data-lucide="clock" style="width:12px;"></i> High Priority</span>
-                    <span class="text-lg font-semibold">$0</span>
-                </div>
-                <h3 class="mb-2 text-xl">50x Cooked Meals (Pasta)</h3>
-                <p class="text-muted text-sm mb-6" style="line-height: 1.6;">Prepared 30 mins ago. Needs enclosed delivery.</p>
-                
-                <div class="flex flex-col gap-4 mb-8 relative">
-                    <div style="position: absolute; left: 15px; top: 20px; bottom: 20px; width: 2px; border-left: 2px dashed var(--border);"></div>
-                    <div class="flex gap-4 items-center z-10" style="background: var(--surface);">
-                        <div style="background: var(--surface-hover); border-radius: 50%; padding: 8px;"><i data-lucide="map-pin" class="text-muted" style="width:16px;"></i></div>
-                        <div>
-                            <p class="text-xs text-muted mb-1">PICKUP at 2:00 PM</p>
-                            <p class="text-sm font-semibold">Grand Hotel Banquet, 12th Street</p>
-                        </div>
-                    </div>
-                    <div class="flex gap-4 items-center z-10" style="background: var(--surface);">
-                        <div style="background: var(--primary-light); border-radius: 50%; padding: 8px; color: var(--primary);"><i data-lucide="flag" style="width:16px;"></i></div>
-                        <div>
-                            <p class="text-xs text-muted mb-1">DROPOFF (2.4 miles)</p>
-                            <p class="text-sm font-semibold">City Hope Center</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="flex gap-4">
-                    <button class="btn btn-primary flex-1" onclick="navigate('tracking')">Accept Task</button>
-                    <button class="btn btn-outline" style="width: auto;">Reject</button>
-                </div>
-            </div>
-            
-            <!-- Task Card 2 -->
-            <div class="card">
-                <div class="flex justify-between items-start mb-4">
-                    <span class="badge" style="background: #E0F2FE; color: #0284C7;">Standard</span>
-                </div>
-                <h3 class="mb-2 text-xl">Bakery Surplus (Breads & Pastries)</h3>
-                <p class="text-muted text-sm mb-6" style="line-height: 1.6;">Shelf-stable for 2 days. 2 large boxes.</p>
-                
-                <div class="flex flex-col gap-4 mb-8 relative">
-                    <div style="position: absolute; left: 15px; top: 20px; bottom: 20px; width: 2px; border-left: 2px dashed var(--border);"></div>
-                    <div class="flex gap-4 items-center z-10" style="background: var(--surface);">
-                        <div style="background: var(--surface-hover); border-radius: 50%; padding: 8px;"><i data-lucide="map-pin" class="text-muted" style="width:16px;"></i></div>
-                        <div>
-                            <p class="text-xs text-muted mb-1">PICKUP at 4:30 PM</p>
-                            <p class="text-sm font-semibold">Sunrise Bakery, West Ave</p>
-                        </div>
-                    </div>
-                    <div class="flex gap-4 items-center z-10" style="background: var(--surface);">
-                        <div style="background: var(--primary-light); border-radius: 50%; padding: 8px; color: var(--primary);"><i data-lucide="flag" style="width:16px;"></i></div>
-                        <div>
-                            <p class="text-xs text-muted mb-1">DROPOFF (1.1 miles)</p>
-                            <p class="text-sm font-semibold">Community Food Bank</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="flex gap-4">
-                    <button class="btn btn-primary flex-1">Accept Task</button>
-                    <button class="btn btn-outline" style="width: auto;">Reject</button>
-                </div>
-            </div>
+            ${tasksHtml}
         </div>
     `;
 }
 
-// 5. Live Tracking Screen
+// 6. Live Tracking Screen (Volunteer)
 function renderTracking() {
+    // Just find the boldest active delivery
+    const activeTask = appState.donations.find(d => d.status === 'in_transit');
+    
+    if(!activeTask) {
+        return `
+            <div class="flex flex-col items-center justify-center text-center" style="height: 60vh;">
+                <i data-lucide="navigation-off" style="width: 64px; height: 64px; color: var(--text-muted); margin-bottom: 24px;"></i>
+                <h2>No active deliveries</h2>
+                <p class="text-muted mb-8">Go to the Task Hub to accept a new delivery.</p>
+                <button class="btn btn-primary" onclick="navigate('volunteer')">Back to Task Hub</button>
+            </div>
+        `;
+    }
+
     return `
-        <div class="flex items-center mb-6">
-            <button class="btn btn-outline mr-4" onclick="navigate('volunteer')" style="padding: 8px;"><i data-lucide="arrow-left" style="width:16px;height:16px;"></i></button>
-            <h1>Live Tracking</h1>
-            <span class="badge badge-warning ml-4">On the Way</span>
+        <div class="flex items-center mb-6 justify-between">
+            <div class="flex items-center">
+                <button class="btn btn-outline mr-4" onclick="navigate('volunteer')" style="padding: 8px;"><i data-lucide="arrow-left" style="width:16px;height:16px;"></i></button>
+                <h1>Live GPS En Route</h1>
+            </div>
+            <button class="btn btn-danger" style="background: var(--primary); color: white;" onclick="completeDelivery()">Simulate: Arrived at NGO <i data-lucide="check-circle-2"></i></button>
         </div>
         
         <div class="grid grid-cols-3 gap-6">
-            <!-- Map Area -->
-            <div class="card" style="grid-column: span 2; padding: 0; overflow: hidden; height: 600px; display: flex; flex-direction: column;">
+            <div class="card tracking-map-card" style="grid-column: span 2; padding: 0; overflow: hidden; height: 600px; display: flex; flex-direction: column;">
                 <div style="flex: 1; background: #E2E8F0; position: relative;">
-                    <!-- Simulated Map Graphic -->
                     <div style="position: absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction: column; color: var(--text-muted); opacity: 0.8; font-weight: 600;">
                         <i data-lucide="map" style="width:64px; height:64px; margin-bottom: 16px;"></i>
                         [ Interactive Map UI (Prototype) ]
                     </div>
-                    <!-- Route visualization mockup -->
                     <svg style="position: absolute; inset: 0; width: 100%; height: 100%;" preserveAspectRatio="none" viewBox="0 0 100 100">
                          <path d="M20,80 Q40,40 80,20" stroke="var(--primary)" stroke-width="2" fill="none" stroke-dasharray="4" />
                          <circle cx="20" cy="80" r="3" fill="var(--surface)" stroke="var(--text-muted)" stroke-width="1.5" />
                          <circle cx="80" cy="20" r="3" fill="var(--surface)" stroke="var(--primary)" stroke-width="1.5" />
-                         <!-- Moving vehicle dot -->
                          <circle cx="50" cy="48" r="4" fill="var(--primary)">
                             <animate attributeName="cx" values="20;80" dur="4s" repeatCount="indefinite" />
                             <animate attributeName="cy" values="80;20" dur="4s" repeatCount="indefinite" />
@@ -429,10 +522,12 @@ function renderTracking() {
                 </div>
             </div>
             
-            <!-- Side Panel -->
             <div class="flex flex-col gap-6">
+                <!-- Data from activeTask -->
                 <div class="card">
-                    <h3 class="flex items-center gap-2 mb-4"><i data-lucide="clock" class="text-primary"></i> Est. Delivery: 14 mins</h3>
+                    <h3 class="flex items-center gap-2 mb-4"><i data-lucide="navigation" class="text-primary"></i> GPS Navigating</h3>
+                    <p class="text-sm font-semibold mb-1">Delivering: ${activeTask.food}</p>
+                    <p class="text-sm text-muted mb-4">To: ${activeTask.destination}</p>
                     
                     <div style="background: var(--surface-hover); border-radius: var(--radius-sm); padding: 16px; margin-bottom: 24px;">
                         <p class="text-sm font-semibold mb-1">Food Freshness Timer</p>
@@ -442,44 +537,15 @@ function renderTracking() {
                             </div>
                             <span class="text-xs font-semibold text-success">Good</span>
                         </div>
-                        <p class="text-xs text-muted">Recommend delivery within 45 mins.</p>
                     </div>
                     
-                    <h4 class="text-sm font-semibold text-muted mb-4 uppercase tracking-wider">Volunteer Details</h4>
-                    <div class="flex items-center gap-4 mb-6">
-                        <div style="width:48px; height:48px; border-radius:50%; background: #CBD5E1; overflow:hidden;">
-                            <img src="https://ui-avatars.com/api/?name=Alex+Parker&background=CBD5E1&color=0F172A" style="width:100%; height:100%;" alt="Alex">
-                        </div>
-                        <div style="flex: 1;">
-                            <h4 class="mb-0.5">Alex Parker</h4>
-                            <p class="text-xs text-muted flex items-center"><i data-lucide="star" style="width:12px; margin-right:2px; color: var(--warning); fill: var(--warning);"></i> 4.9 (120 deliveries)</p>
-                        </div>
-                    </div>
-                    
-                    <div class="grid grid-cols-2 gap-3">
-                        <button class="btn btn-outline flex justify-center"><i data-lucide="phone"></i> Call</button>
-                        <button class="btn btn-primary flex justify-center"><i data-lucide="message-square"></i> Message</button>
-                    </div>
-                </div>
-                
-                <div class="card">
-                    <h4 class="mb-4">Task Status</h4>
+                    <h4 class="mb-4">Task Tracking Status</h4>
                     <div class="flex flex-col gap-4">
-                        <div class="flex items-center gap-3 opacity-50">
-                            <i data-lucide="check-circle-2" class="text-primary"></i>
-                            <span class="text-sm font-semibold">Assigned</span>
+                        <div class="flex items-center gap-3">
+                            <i data-lucide="check-circle-2" class="text-primary"></i><span class="text-sm font-semibold">Pickup Complete</span>
                         </div>
                         <div class="flex items-center gap-3">
-                            <i data-lucide="check-circle-2" class="text-primary"></i>
-                            <span class="text-sm font-semibold">Pickup Complete</span>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <i data-lucide="clock" class="text-warning"></i>
-                            <span class="text-sm font-semibold">On the Way</span>
-                        </div>
-                        <div class="flex items-center gap-3 opacity-50">
-                            <i data-lucide="circle" class="text-muted"></i>
-                            <span class="text-sm font-semibold text-muted">Delivered</span>
+                            <i data-lucide="clock" class="text-warning"></i><span class="text-sm font-semibold">On the Way (Simulated)</span>
                         </div>
                     </div>
                 </div>
@@ -488,100 +554,7 @@ function renderTracking() {
     `;
 }
 
-// 6. NGO Dashboard
-function renderNGO() {
-    return `
-        <div class="flex justify-between items-center mb-6">
-            <div>
-                <h1 class="mb-2">NGO Command Center</h1>
-                <p class="text-muted">Manage incoming food, request resources, and trace impact.</p>
-            </div>
-            <button class="btn btn-primary"><i data-lucide="plus"></i> Request Food</button>
-        </div>
-        
-        <div class="grid grid-cols-4 gap-6 mb-8">
-            <div class="card">
-                <p class="text-muted text-sm font-semibold mb-1">Total Received (Week)</p>
-                <h2 style="font-size: 2rem;">450 lbs</h2>
-            </div>
-            <div class="card bg-primary-light" style="background: var(--primary-light); border: none;">
-                <p class="text-primary text-sm font-semibold mb-1">Incoming Now</p>
-                <h2 style="font-size: 2rem; color: var(--primary-hover);">2 deliveries</h2>
-            </div>
-            <div class="card">
-                <p class="text-muted text-sm font-semibold mb-1">Pending Requests</p>
-                <h2 style="font-size: 2rem;">1</h2>
-            </div>
-            <div class="card">
-                <p class="text-muted text-sm font-semibold mb-1">Meals Distributed</p>
-                <h2 style="font-size: 2rem;">1,200</h2>
-            </div>
-        </div>
-        
-        <div class="grid grid-cols-3 gap-6">
-            <div class="card" style="grid-column: span 2;">
-                <h3 class="mb-4">Active Incoming Deliveries</h3>
-                
-                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.875rem;">
-                    <thead>
-                        <tr style="border-bottom: 1px solid var(--border); color: var(--text-muted);">
-                            <th style="padding: 12px 8px;">Donation Item</th>
-                            <th style="padding: 12px 8px;">Volunteer</th>
-                            <th style="padding: 12px 8px;">ETA</th>
-                            <th style="padding: 12px 8px;">Status</th>
-                            <th style="padding: 12px 8px;">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr style="border-bottom: 1px solid var(--border);">
-                            <td style="padding: 16px 8px; font-weight: 500;">50x Pasta Trays</td>
-                            <td style="padding: 16px 8px;">Alex P.</td>
-                            <td style="padding: 16px 8px; font-weight: 600;">14 mins</td>
-                            <td style="padding: 16px 8px;"><span class="badge badge-warning">On Route</span></td>
-                            <td style="padding: 16px 8px;"><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem;" onclick="navigate('tracking')">Track</button></td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 16px 8px; font-weight: 500;">20 Fresh Salads</td>
-                            <td style="padding: 16px 8px;">Maria S.</td>
-                            <td style="padding: 16px 8px; font-weight: 600;">--</td>
-                            <td style="padding: 16px 8px;"><span class="badge" style="background:var(--surface-hover);">Pending Pickup</span></td>
-                            <td style="padding: 16px 8px;"><button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem;">View</button></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            
-            <div class="card">
-                <h3 class="mb-4">Quick Analytics</h3>
-                <!-- Simple CSS Bar Chart -->
-                <div class="flex flex-col gap-4 mb-6">
-                    <div>
-                        <div class="flex justify-between text-sm mb-1"><span>Cooked Meals</span> <span class="font-semibold">65%</span></div>
-                        <div style="width: 100%; height: 8px; background: var(--surface-hover); border-radius: 4px; overflow: hidden;">
-                            <div style="width: 65%; height: 100%; background: var(--primary);"></div>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="flex justify-between text-sm mb-1"><span>Produce</span> <span class="font-semibold">25%</span></div>
-                        <div style="width: 100%; height: 8px; background: var(--surface-hover); border-radius: 4px; overflow: hidden;">
-                            <div style="width: 25%; height: 100%; background: #3B82F6;"></div>
-                        </div>
-                    </div>
-                    <div>
-                        <div class="flex justify-between text-sm mb-1"><span>Bakery/Other</span> <span class="font-semibold">10%</span></div>
-                        <div style="width: 100%; height: 8px; background: var(--surface-hover); border-radius: 4px; overflow: hidden;">
-                            <div style="width: 10%; height: 100%; background: var(--warning);"></div>
-                        </div>
-                    </div>
-                </div>
-                
-                <button class="btn btn-outline" style="width: 100%;" onclick="navigate('analytics')">View Full Report</button>
-            </div>
-        </div>
-    `;
-}
-
-// 7. Impact / Analytics Screen
+// 7. Impact / Analytics Screen (Unchanged functionally, added flex-shrink fix)
 function renderAnalytics() {
     return `
         <h1 class="mb-2">Global Impact & Analytics</h1>
@@ -603,7 +576,6 @@ function renderAnalytics() {
                 <h2 style="font-size: 2.5rem; margin-bottom: 8px;">850k</h2>
                 <p class="text-muted font-semibold">Lbs of Food Saved From Waste</p>
             </div>
-            
             <div class="card text-center" style="padding: 32px 24px;">
                 <div style="background: #FEF3C7; width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; color: #D97706;">
                     <i data-lucide="users" style="width: 32px; height: 32px;"></i>
@@ -616,20 +588,11 @@ function renderAnalytics() {
         <div class="grid grid-cols-2 gap-6">
             <div class="card">
                 <h3 class="mb-6">Monthly Donation Trends</h3>
-                 <!-- CSS mock chart -->
                  <div class="flex items-end gap-4 h-[200px]" style="height: 200px; padding-top: 20px; border-bottom: 1px solid var(--border);">
-                    <div style="flex:1; background: var(--surface-hover); height: 40%; border-radius: 4px 4px 0 0; position:relative;">
-                        <span style="position:absolute; bottom: -24px; left: 50%; transform: translateX(-50%); font-size: 12px; color: var(--text-muted);">Jan</span>
-                    </div>
-                    <div style="flex:1; background: var(--surface-hover); height: 50%; border-radius: 4px 4px 0 0; position:relative;">
-                        <span style="position:absolute; bottom: -24px; left: 50%; transform: translateX(-50%); font-size: 12px; color: var(--text-muted);">Feb</span>
-                    </div>
-                    <div style="flex:1; background: var(--primary-light); height: 80%; border-radius: 4px 4px 0 0; position:relative;">
-                        <span style="position:absolute; bottom: -24px; left: 50%; transform: translateX(-50%); font-size: 12px; color: var(--text-muted);">Mar</span>
-                    </div>
-                    <div style="flex:1; background: var(--primary); height: 100%; border-radius: 4px 4px 0 0; position:relative; box-shadow: 0 0 10px rgba(16,185,129,0.3);">
-                        <span style="position:absolute; bottom: -24px; left: 50%; transform: translateX(-50%); font-size: 12px; color: var(--text-muted); font-weight: bold;">Apr</span>
-                    </div>
+                    <div style="flex:1; background: var(--surface-hover); height: 40%; border-radius: 4px 4px 0 0; position:relative;"><span style="position:absolute; bottom: -24px; left: 50%; transform: translateX(-50%); font-size: 12px; color: var(--text-muted);">Jan</span></div>
+                    <div style="flex:1; background: var(--surface-hover); height: 50%; border-radius: 4px 4px 0 0; position:relative;"><span style="position:absolute; bottom: -24px; left: 50%; transform: translateX(-50%); font-size: 12px; color: var(--text-muted);">Feb</span></div>
+                    <div style="flex:1; background: var(--primary-light); height: 80%; border-radius: 4px 4px 0 0; position:relative;"><span style="position:absolute; bottom: -24px; left: 50%; transform: translateX(-50%); font-size: 12px; color: var(--text-muted);">Mar</span></div>
+                    <div style="flex:1; background: var(--primary); height: 100%; border-radius: 4px 4px 0 0; position:relative; box-shadow: 0 0 10px rgba(16,185,129,0.3);"><span style="position:absolute; bottom: -24px; left: 50%; transform: translateX(-50%); font-size: 12px; color: var(--text-muted); font-weight: bold;">Apr</span></div>
                  </div>
             </div>
             
@@ -637,7 +600,7 @@ function renderAnalytics() {
                 <h3 class="mb-4">Recent Success Stories</h3>
                 <div class="flex flex-col gap-4">
                     <div class="flex gap-4 items-center">
-                        <img src="https://images.unsplash.com/photo-1593113565214-80afcb4dd27b?q=80&w=150&auto=format&fit=crop" style="width: 80px; height: 80px; border-radius: var(--radius-sm); object-fit: cover;">
+                        <img src="banquet.png" style="width: 80px; height: 80px; border-radius: var(--radius-sm); object-fit: cover; flex-shrink: 0;">
                         <div>
                             <h4 class="text-md">Grand Hotel Banquet</h4>
                             <p class="text-sm text-muted mb-1">Donated 200 meals from an event cancellation, feeding 3 shelters.</p>
@@ -646,7 +609,7 @@ function renderAnalytics() {
                     </div>
                     <div style="height:1px; background:var(--border);"></div>
                     <div class="flex gap-4 items-center">
-                        <img src="https://images.unsplash.com/photo-1488459716781-31db52582fe9?q=80&w=150&auto=format&fit=crop" style="width: 80px; height: 80px; border-radius: var(--radius-sm); object-fit: cover;">
+                        <img src="bakery.png" style="width: 80px; height: 80px; border-radius: var(--radius-sm); object-fit: cover; flex-shrink: 0;">
                         <div>
                             <h4 class="text-md">Fresh Market Bakery</h4>
                             <p class="text-sm text-muted mb-1">Partnered to eliminate 100% of their daily surplus waste.</p>
